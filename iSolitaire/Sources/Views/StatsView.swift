@@ -5,6 +5,7 @@ struct StatsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var stats = StatsStore().load()
     @State private var confirmReset = false
+    @ObservedObject private var gameCenter = GameCenter.shared
 
     private var lang: AppLanguage { appSettings.language }
 
@@ -21,6 +22,20 @@ struct StatsView: View {
                         tile("clock.fill", L10n.t(.averageTime, lang), stats.averageWinSeconds.map(L10n.time) ?? "—")
                         tile("star.fill", L10n.t(.bestScore, lang), stats.gamesWon > 0 ? "\(stats.bestScore)" : "—")
                         tile("hand.draw.fill", L10n.t(.fewestMoves, lang), stats.fewestMoves.map { "\($0)" } ?? "—")
+                    }
+
+                    if gameCenter.isAuthenticated {
+                        Button {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { GameCenter.shared.showLeaderboards() }
+                        } label: {
+                            Label(L10n.t(.leaderboards, lang), systemImage: "trophy.fill")
+                                .font(.subheadline.weight(.semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .tint(Theme.ember)
                     }
 
                     Button(role: .destructive) {

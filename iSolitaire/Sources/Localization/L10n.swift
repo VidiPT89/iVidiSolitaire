@@ -64,12 +64,31 @@ enum L10nKey: String {
     case themeOcean
     case themeWine
     case stock
+    case academy
+    case academySubtitle
+    case lessonsDone
+    case exerciseOf
+    case start
+    case practiceAgain
+    case next
+    case finish
+    case showAnswer
+    case lessonComplete
+    case lessonCompleteMessage
+    case keyIdea
+    case coach
+    case gameCenter
+    case leaderboards
+    case backToAcademy
+    case tryAgainHint
+    case yourTurn
+    case privacyPolicy
 }
 
 enum L10n {
     private static let strings: [AppLanguage: [L10nKey: String]] = [
         .portuguese: [
-            .appName: "iSolitaire",
+            .appName: "iVidiSolitaire",
             .newGame: "Novo Jogo",
             .continueGame: "Continuar",
             .undo: "Anular",
@@ -117,7 +136,7 @@ enum L10n {
             .cardBack: "Verso das Cartas",
             .controls: "Controlos",
             .leftHanded: "Modo canhoto",
-            .controlsFooter: "Toca numa carta para a jogar no melhor sítio, ou arrasta-a. O modo canhoto troca o baralho e as fundações de lado.",
+            .controlsFooter: "Toca numa carta para a jogar no melhor sítio, ou arrasta-a. O treinador comenta as tuas jogadas e explica as dicas. O modo canhoto troca o baralho e as fundações de lado.",
             .soundEffects: "Efeitos sonoros",
             .haptics: "Vibração",
             .about: "Sobre",
@@ -132,9 +151,28 @@ enum L10n {
             .themeOcean: "Oceano",
             .themeWine: "Vinho",
             .stock: "Baralho",
+            .academy: "Academia",
+            .academySubtitle: "Aprende a ganhar mais jogos",
+            .lessonsDone: "%d de %d lições",
+            .exerciseOf: "Exercício %d de %d",
+            .start: "Começar",
+            .practiceAgain: "Praticar outra vez",
+            .next: "Seguinte",
+            .finish: "Terminar",
+            .showAnswer: "Mostrar",
+            .lessonComplete: "Lição concluída!",
+            .lessonCompleteMessage: "Agora experimenta numa partida a sério: o treinador avisa-te quando há uma jogada melhor.",
+            .keyIdea: "A ideia",
+            .coach: "Treinador na mesa",
+            .gameCenter: "Game Center",
+            .leaderboards: "Classificações do Game Center",
+            .backToAcademy: "Academia",
+            .tryAgainHint: "Tenta outra vez.",
+            .yourTurn: "Faz a jogada no tabuleiro.",
+            .privacyPolicy: "Política de privacidade",
         ],
         .english: [
-            .appName: "iSolitaire",
+            .appName: "iVidiSolitaire",
             .newGame: "New Game",
             .continueGame: "Continue",
             .undo: "Undo",
@@ -182,7 +220,7 @@ enum L10n {
             .cardBack: "Card Back",
             .controls: "Controls",
             .leftHanded: "Left-handed mode",
-            .controlsFooter: "Tap a card to play it to the best spot, or drag it. Left-handed mode swaps the stock and foundations.",
+            .controlsFooter: "Tap a card to play it to the best spot, or drag it. The coach comments on your moves and explains hints. Left-handed mode swaps the stock and foundations.",
             .soundEffects: "Sound effects",
             .haptics: "Haptics",
             .about: "About",
@@ -197,6 +235,25 @@ enum L10n {
             .themeOcean: "Ocean",
             .themeWine: "Wine",
             .stock: "Stock",
+            .academy: "Academy",
+            .academySubtitle: "Learn to win more games",
+            .lessonsDone: "%d of %d lessons",
+            .exerciseOf: "Exercise %d of %d",
+            .start: "Start",
+            .practiceAgain: "Practise Again",
+            .next: "Next",
+            .finish: "Finish",
+            .showAnswer: "Show",
+            .lessonComplete: "Lesson complete!",
+            .lessonCompleteMessage: "Now try it in a real game: the coach tells you when there's a better move.",
+            .keyIdea: "The idea",
+            .coach: "Coach at the table",
+            .gameCenter: "Game Center",
+            .leaderboards: "Game Center Leaderboards",
+            .backToAcademy: "Academy",
+            .tryAgainHint: "Try again.",
+            .yourTurn: "Make the move on the board.",
+            .privacyPolicy: "Privacy policy",
         ],
     ]
 
@@ -223,6 +280,53 @@ enum L10n {
         case .felt: return t(.themeFelt, language)
         case .ocean: return t(.themeOcean, language)
         case .wine: return t(.themeWine, language)
+        }
+    }
+
+    static func format(_ key: L10nKey, _ language: AppLanguage, _ args: CVarArg...) -> String {
+        String(format: t(key, language), arguments: args)
+    }
+
+    static func coachText(_ kind: CoachTip.Kind, _ language: AppLanguage) -> String {
+        let pt = language == .portuguese
+        switch kind {
+        case .verdict(let verdict):
+            switch verdict {
+            case .foundationTooSoon(let waiting):
+                return pt ? "Cuidado: o \(waiting.shortName) só cabia nessa carta. Agora ficou sem sítio."
+                          : "Careful: the \(waiting.shortName) could only go on that card. Now it has nowhere to go."
+            case .emptiedWithoutKing:
+                return pt ? "Esvaziaste uma coluna sem nenhum Rei à vista para a ocupar."
+                          : "You emptied a column with no King in sight to fill it."
+            case .missedTallerColumn(let card):
+                return pt ? "Havia uma coluna com mais cartas escondidas: o \(card.shortName) abria essa."
+                          : "Another column had more hidden cards: the \(card.shortName) would have opened it."
+            case .missedReveal(let card):
+                return pt ? "Havia uma jogada melhor: o \(card.shortName) revelava uma carta escondida."
+                          : "There was a better move: the \(card.shortName) would have revealed a hidden card."
+            case .drewWithMoves(let card):
+                return pt ? "Antes de virar o monte, vê o tabuleiro: o \(card.shortName) tinha jogada."
+                          : "Before turning the stock, check the board: the \(card.shortName) had a move."
+            case .uncoveredFoundationCard:
+                return pt ? "Bem visto! Destapaste uma carta para a fundação." : "Well spotted! You uncovered a card for the foundation."
+            case .choseTallestColumn:
+                return pt ? "Boa escolha: abriste a coluna com mais cartas escondidas." : "Good choice: you opened the column with the most hidden cards."
+            }
+        case .hint(let reason):
+            switch reason {
+            case .toFoundation(let card):
+                return pt ? "Manda o \(card.shortName) para a fundação." : "Send the \(card.shortName) to the foundation."
+            case .reveal(let card):
+                return pt ? "Move o \(card.shortName) para revelar uma carta escondida." : "Move the \(card.shortName) to reveal a hidden card."
+            case .fromWaste(let card):
+                return pt ? "Usa o \(card.shortName) do monte." : "Use the \(card.shortName) from the waste."
+            case .uncover(let card):
+                return pt ? "Move o \(card.shortName) para destapar uma carta para a fundação." : "Move the \(card.shortName) to uncover a card for the foundation."
+            case .freeColumn(let card):
+                return pt ? "Move o \(card.shortName) para libertar uma coluna para um Rei." : "Move the \(card.shortName) to free a column for a King."
+            case .drawStock:
+                return pt ? "Não há jogadas no tabuleiro: vira o monte." : "No moves on the board: turn the stock."
+            }
         }
     }
 

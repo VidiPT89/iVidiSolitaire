@@ -35,9 +35,11 @@ enum AppColorScheme: String, CaseIterable, Codable {
 enum AppPreferences {
     static let soundKey = "iSolitaire.soundEnabled"
     static let hapticsKey = "iSolitaire.hapticsEnabled"
+    static let coachKey = "iSolitaire.coachEnabled"
 
     static var soundEnabled: Bool { UserDefaults.standard.object(forKey: soundKey) as? Bool ?? true }
     static var hapticsEnabled: Bool { UserDefaults.standard.object(forKey: hapticsKey) as? Bool ?? true }
+    static var coachEnabled: Bool { UserDefaults.standard.object(forKey: coachKey) as? Bool ?? true }
 }
 
 final class AppSettingsStore: ObservableObject {
@@ -48,6 +50,7 @@ final class AppSettingsStore: ObservableObject {
     @AppStorage("iSolitaire.leftHanded") var leftHanded: Bool = false
     @AppStorage(AppPreferences.soundKey) var soundEnabled: Bool = true
     @AppStorage(AppPreferences.hapticsKey) var hapticsEnabled: Bool = true
+    @AppStorage(AppPreferences.coachKey) var coachEnabled: Bool = true
 
     var language: AppLanguage {
         get { AppLanguage(rawValue: languageRaw) ?? .english }

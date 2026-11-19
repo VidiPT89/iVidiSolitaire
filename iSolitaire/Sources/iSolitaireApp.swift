@@ -9,6 +9,7 @@ struct iSolitaireApp: App {
             SplashView()
                 .environmentObject(appSettings)
                 .preferredColorScheme(appSettings.colorScheme.colorScheme)
+                .onAppear { GameCenter.shared.authenticate() }
         }
     }
 }

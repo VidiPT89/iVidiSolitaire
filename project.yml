@@ -23,7 +23,10 @@ targets:
     info:
       path: iSolitaire/Sources/Info.plist
       properties:
-        CFBundleDisplayName: iSolitaire
+        CFBundleDisplayName: iVidiSolitaire
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -38,6 +41,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.ividi.iSolitaire
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: iSolitaire/iSolitaire.entitlements
     scheme:
       testTargets:
         - iSolitaireTests

@@ -1,5 +1,16 @@
 import SwiftUI
 
+/// Everything the board needs to run an Academy exercise instead of a game.
+struct PracticeConfig {
+    let exercise: Exercise
+    let lessonTitle: LocalizedText
+    let step: Int
+    let total: Int
+    /// Called with the stars earned when the player moves on.
+    let onNext: (Int) -> Void
+    let onClose: () -> Void
+}
+
 struct BoardView: View {
     @StateObject private var game: GameModel
     @EnvironmentObject var appSettings: AppSettingsStore
@@ -14,8 +25,22 @@ struct BoardView: View {
     @State private var dragPreview: DragPreview?
     @State private var dropTarget: PileKind?
 
+    private let practice: PracticeConfig?
+
     init(startFresh: Bool = false) {
         _game = StateObject(wrappedValue: GameModel(startFresh: startFresh))
+        practice = nil
+    }
+
+    /// Runs an existing model (used by the store screenshot tests to show a prepared moment).
+    init(game: GameModel, practice: PracticeConfig? = nil) {
+        _game = StateObject(wrappedValue: game)
+        self.practice = practice
+    }
+
+    init(practice: PracticeConfig) {
+        _game = StateObject(wrappedValue: GameModel(exercise: practice.exercise))
+        self.practice = practice
     }
 
     private var lang: AppLanguage { appSettings.language }
@@ -41,14 +66,35 @@ struct BoardView: View {
             ZStack {
                 TableBackground(theme: theme, scheme: systemScheme).equatable()
 
-                if landscape {
+                if let practice {
+                    if landscape {
+                        VStack(spacing: 6) {
+                            practiceHeader(practice)
+                            HStack(alignment: .top, spacing: 12) {
+                                board(layout: layout).frame(maxWidth: .infinity)
+                                practicePanel(practice).frame(width: 260)
+                            }
+                            .padding(.horizontal, 8)
+                        }
+                        .padding(.top, 4)
+                    } else {
+                        VStack(spacing: 12) {
+                            practiceHeader(practice)
+                            board(layout: layout)
+                            practicePanel(practice)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 4)
+                        }
+                        .padding(.top, 8)
+                    }
+                } else if landscape {
                     VStack(spacing: 6) {
                         header
                         HStack(alignment: .top, spacing: 12) {
                             if appSettings.leftHanded { verticalToolbar }
                             board(layout: layout)
                                 .frame(maxWidth: .infinity)
-                                .overlay(alignment: .bottom) { banner.padding(.bottom, 8) }
+                                .overlay(alignment: .bottom) { bottomNotice.padding(.bottom, 8) }
                             if !appSettings.leftHanded { verticalToolbar }
                         }
                         .padding(.horizontal, 8)
@@ -58,7 +104,7 @@ struct BoardView: View {
                     VStack(spacing: 12) {
                         header
                         board(layout: layout)
-                        banner
+                            .overlay(alignment: .bottom) { bottomNotice }
                         toolbar
                     }
                     .padding(.top, 8)
@@ -264,6 +310,129 @@ struct BoardView: View {
                 .background(.ultraThinMaterial, in: Circle())
         }
         .accessibilityLabel(label)
+    }
+
+    /// The solved/stuck banner, or else the coach's latest tip, floating over the empty space under the tableau.
+    @ViewBuilder
+    private var bottomNotice: some View {
+        if game.autoCompleteAvailable || game.isStuck {
+            banner
+        } else if let tip = game.coachTip {
+            coachToast(tip)
+                .id(tip.id)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    private func coachToast(_ tip: CoachTip) -> some View {
+        let isPraise: Bool = { if case .verdict(let v) = tip.kind { return v.isPraise } else { return false } }()
+        let icon = switch tip.kind {
+        case .hint: "lightbulb.fill"
+        case .verdict: isPraise ? "hand.thumbsup.fill" : "graduationcap.fill"
+        }
+        return Button { game.dismissTip() } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: icon)
+                    .font(.subheadline)
+                    .foregroundStyle(isPraise ? AnyShapeStyle(Color.green) : AnyShapeStyle(Theme.accentGradient))
+                Text(L10n.coachText(tip.kind, lang))
+                    .font(.footnote.weight(.medium))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(textColor)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+            .frame(maxWidth: 520)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 6)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Practice
+
+    private func practiceHeader(_ practice: PracticeConfig) -> some View {
+        HStack(spacing: 10) {
+            circleButton("xmark", label: L10n.t(.close, lang)) { practice.onClose() }
+            Spacer(minLength: 0)
+            VStack(spacing: 2) {
+                Text(practice.lessonTitle(lang))
+                    .font(.headline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text(L10n.format(.exerciseOf, lang, practice.step, practice.total))
+                    .font(.caption)
+                    .opacity(0.75)
+            }
+            Spacer(minLength: 0)
+            Color.clear.frame(width: 38, height: 38)
+        }
+        .foregroundStyle(textColor)
+        .padding(.horizontal, 12)
+    }
+
+    private func practicePanel(_ practice: PracticeConfig) -> some View {
+        let (icon, tint, text): (String, Color, String) = switch game.practiceFeedback {
+        case .correct(let explanation): ("checkmark.circle.fill", .green, explanation(lang))
+        case .wrong(let reason): ("xmark.circle.fill", Color(red: 0.9, green: 0.3, blue: 0.25), reason(lang))
+        case nil: ("graduationcap.fill", Theme.ember, practice.exercise.prompt(lang))
+        }
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundStyle(tint)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(text)
+                        .font(.subheadline.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !game.practiceSolved {
+                        Text(L10n.t(game.practiceFeedback == nil ? .yourTurn : .tryAgainHint, lang))
+                            .font(.caption)
+                            .opacity(0.7)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .id(text)
+            .transition(.opacity)
+
+            HStack {
+                if !game.practiceSolved {
+                    Button { game.requestHint() } label: {
+                        Label(L10n.t(.showAnswer, lang), systemImage: "lightbulb.fill")
+                            .font(.footnote.weight(.semibold))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.primary.opacity(0.1), in: Capsule())
+                    }
+                }
+                Spacer(minLength: 0)
+                if game.practiceSolved {
+                    Button { practice.onNext(game.practiceStars) } label: {
+                        HStack(spacing: 6) {
+                            Text(L10n.t(practice.step == practice.total ? .finish : .next, lang))
+                            Image(systemName: "arrow.right")
+                        }
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Theme.accentGradient, in: Capsule())
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .foregroundStyle(textColor)
+        .padding(16)
+        .frame(maxWidth: 560, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .animation(.easeInOut(duration: 0.2), value: text)
     }
 
     @ViewBuilder

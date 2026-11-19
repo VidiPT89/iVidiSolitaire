@@ -1,11 +1,14 @@
-# 🃏 iSolitaire
+# 🃏 iVidiSolitaire
 
-> Classic Klondike Solitaire, natively reimagined for iOS with SwiftUI.
+> Klondike Solitaire that teaches you to win: an Academy of strategy lessons, a coach at the table, and Game Center.
 
 [Report Bug](https://github.com/VidiPT89/iSolitaire/issues) · [Request Feature](https://github.com/VidiPT89/iSolitaire/issues)
 
 ## ✨ Features
 
+- ✅ **Academy** — 7 strategy lessons in PT-PT and English, each with exercises on real positions, explained mistakes and stars
+- ✅ **Coach at the table** — comments on your moves (missed reveals, emptying a column with no King, rushing the foundations) and explains every hint
+- ✅ **Game Center** — signs in at launch; leaderboards for high score, fastest win and total wins, plus 8 achievements
 - ✅ Classic Klondike rules — draw 1 (with a fanned three-card waste in draw 3), unlimited or limited (1–5) passes through the deck
 - ✅ Tap a card to play it to the best spot, or drag it — cards fly between piles, including the deal, undo and auto-complete
 - ✅ Drop targets light up while dragging; invalid drops glide back to where they came from
@@ -61,6 +64,10 @@ xcodebuild -project iSolitaire.xcodeproj -scheme iSolitaire -destination 'platfo
 ```
 
 The project is generated with [XcodeGen](https://github.com/yonaskolb/XcodeGen) from `project.yml` (`xcodegen generate`).
+
+## 🔒 Privacy
+
+No accounts, analytics, ads or tracking. See [PRIVACY.md](PRIVACY.md).
 
 ## 📄 License
 

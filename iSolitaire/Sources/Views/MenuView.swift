@@ -39,6 +39,9 @@ struct MenuView: View {
                         NavigationLink(value: Route.board(startFresh: true)) {
                             menuButton(L10n.t(.newGame, lang), icon: "plus.rectangle.on.rectangle", primary: !hasResumableGame)
                         }
+                        NavigationLink(value: Route.academy) {
+                            academyButton
+                        }
                         HStack(spacing: 12) {
                             Button { showStats = true } label: {
                                 menuButton(L10n.t(.stats, lang), icon: "chart.bar.fill", primary: false)
@@ -71,14 +74,21 @@ struct MenuView: View {
                 switch route {
                 case .board(let startFresh):
                     BoardView(startFresh: startFresh)
+                case .academy:
+                    AcademyView()
                 }
             }
             .onAppear {
                 hasResumableGame = GameStateStore.loadState().map { !$0.isWon && $0.moves > 0 } ?? false
                 standaloneSettings = GameStateStore.loadSettings() ?? GameSettings()
                 withAnimation(.spring(response: 0.7, dampingFraction: 0.7).delay(0.1)) { fanned = true }
+                GameCenter.shared.isMenuVisible = true
             }
-            .onDisappear { fanned = false }
+            .onDisappear {
+                fanned = false
+                GameCenter.shared.isMenuVisible = false
+            }
+            .onChange(of: showSettings || showStats) { _, covered in GameCenter.shared.isMenuCovered = covered }
             .sheet(isPresented: $showSettings) {
                 SettingsView(gameSettings: $standaloneSettings).environmentObject(appSettings)
             }
@@ -90,6 +100,29 @@ struct MenuView: View {
             }
         }
         .tint(Theme.ember)
+    }
+
+    private var academyButton: some View {
+        let done = AcademyProgress.completedLessons()
+        return HStack(spacing: 12) {
+            Image(systemName: "graduationcap.fill")
+                .font(.title3)
+                .foregroundStyle(Theme.accentGradient)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.t(.academy, lang)).font(.headline)
+                Text(L10n.format(.lessonsDone, lang, done, Academy.lessons.count))
+                    .font(.caption)
+                    .opacity(0.7)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).opacity(0.5)
+        }
+        .foregroundStyle(textColor)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 18)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.ember.opacity(0.45), lineWidth: 1))
+        .contentShape(Rectangle())
     }
 
     private func menuButton(_ title: String, icon: String, primary: Bool) -> some View {
@@ -116,4 +149,5 @@ struct MenuView: View {
 
 private enum Route: Hashable {
     case board(startFresh: Bool)
+    case academy
 }

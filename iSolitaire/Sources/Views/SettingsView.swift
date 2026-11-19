@@ -65,6 +65,7 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Toggle(L10n.t(.coach, lang), isOn: $appSettings.coachEnabled)
                     Toggle(L10n.t(.leftHanded, lang), isOn: $appSettings.leftHanded)
                     Toggle(L10n.t(.soundEffects, lang), isOn: $appSettings.soundEnabled)
                     Toggle(L10n.t(.haptics, lang), isOn: $appSettings.hapticsEnabled)
@@ -101,6 +102,8 @@ struct SettingsView: View {
                         Link(L10n.t(.website, lang), destination: URL(string: "https://ividi.dev/")!)
                             .font(.footnote)
                         Link(L10n.t(.github, lang), destination: URL(string: "https://github.com/VidiPT89/")!)
+                            .font(.footnote)
+                        Link(L10n.t(.privacyPolicy, lang), destination: URL(string: "https://github.com/VidiPT89/iSolitaire/blob/main/PRIVACY.md")!)
                             .font(.footnote)
                     }
                     .foregroundStyle(Theme.ember)

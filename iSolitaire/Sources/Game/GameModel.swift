@@ -9,6 +9,22 @@ struct Hint: Equatable {
     var stock = false
 }
 
+/// A comment shown above the toolbar: the coach's view of the last move, or why the hint points where it does.
+struct CoachTip: Equatable, Identifiable {
+    enum Kind: Equatable {
+        case verdict(CoachVerdict)
+        case hint(HintReason)
+    }
+    let id: Int
+    let kind: Kind
+}
+
+/// How the player is doing on an Academy exercise.
+enum PracticeFeedback: Equatable {
+    case correct(LocalizedText)
+    case wrong(LocalizedText)
+}
+
 struct WinResult: Equatable {
     let score: Int
     let seconds: Int
@@ -27,14 +43,17 @@ final class GameClock: ObservableObject {
 @MainActor
 final class GameModel: ObservableObject {
     @Published private(set) var state: GameState {
-        didSet { GameStateStore.saveState(state) }
+        didSet { if exercise == nil { GameStateStore.saveState(state) } }
     }
     @Published var settings: GameSettings {
         didSet {
-            GameStateStore.saveSettings(settings)
+            if exercise == nil { GameStateStore.saveSettings(settings) }
             evaluate()
         }
     }
+    @Published private(set) var coachTip: CoachTip?
+    @Published private(set) var practiceFeedback: PracticeFeedback?
+    @Published private(set) var practiceSolved = false
     @Published private(set) var hint: Hint?
     @Published private(set) var autoCompleteAvailable = false
     @Published private(set) var isAutoCompleting = false
@@ -45,6 +64,8 @@ final class GameModel: ObservableObject {
     @Published private(set) var shakeCounts: [UUID: Int] = [:]
 
     let clock = GameClock()
+    /// Set when this model runs an Academy exercise: nothing is saved, timed or recorded.
+    let exercise: Exercise?
 
     private var undoStack: [GameState] = []
     private var timer: Timer?
@@ -52,11 +73,16 @@ final class GameModel: ObservableObject {
     private var winRecorded = false
     private var flightToken = 0
     private var hintTask: Task<Void, Never>?
+    private var tipTask: Task<Void, Never>?
+    private var tipCounter = 0
+    private var practiceMistakes = 0
+    private var practiceHintUsed = false
     private let statsStore = StatsStore()
     private let haptics = HapticsPlayer()
     private let sounds = SoundPlayer()
 
     init(settings: GameSettings? = nil, startFresh: Bool = false) {
+        self.exercise = nil
         self.settings = settings ?? GameStateStore.loadSettings() ?? GameSettings()
         let saved = GameStateStore.loadState().flatMap { $0.isWon ? nil : $0 }
         if !startFresh, let saved {
@@ -71,7 +97,20 @@ final class GameModel: ObservableObject {
         }
     }
 
+    /// Starts an Academy exercise on its prepared position.
+    init(exercise: Exercise) {
+        self.exercise = exercise
+        self.settings = GameSettings()
+        self.state = exercise.makeState()
+    }
+
     var canUndo: Bool { !undoStack.isEmpty && !isAutoCompleting }
+
+    /// 3 stars without mistakes or help, 2 with one slip or the answer shown, 1 otherwise.
+    var practiceStars: Int {
+        if practiceMistakes == 0 && !practiceHintUsed { return 3 }
+        return practiceMistakes <= 1 ? 2 : 1
+    }
 
     func isFlying(_ cardID: UUID) -> Bool { flights[cardID] != nil }
 
@@ -93,7 +132,7 @@ final class GameModel: ObservableObject {
 
     /// The clock starts with the first move, not the deal, so looking at a fresh board is free.
     private func startTimer() {
-        guard timer == nil, !isPaused, !state.isWon else { return }
+        guard exercise == nil, timer == nil, !isPaused, !state.isWon else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.clock.seconds += 1 }
         }
@@ -108,7 +147,7 @@ final class GameModel: ObservableObject {
     func pause() {
         isPaused = true
         stopTimer()
-        guard !state.isWon else { return }
+        guard exercise == nil, !state.isWon else { return }
         if state.elapsedSeconds != clock.seconds {
             state.elapsedSeconds = clock.seconds
         }
@@ -164,8 +203,9 @@ final class GameModel: ObservableObject {
     // MARK: - Undo
 
     func undo() {
-        guard canUndo, let previous = undoStack.popLast() else { return }
+        guard canUndo, var previous = undoStack.popLast() else { return }
         winResult = nil
+        previous.undosUsed = state.undosUsed + 1
         commit(previous, sound: { $0.cardPlace() })
         haptics.light()
     }
@@ -173,15 +213,21 @@ final class GameModel: ObservableObject {
     // MARK: - Stock
 
     func drawFromStock() {
-        guard !isAutoCompleting else { return }
+        guard !isAutoCompleting, !practiceSolved else { return }
         var next = state
         guard next.draw(settings) else {
             haptics.invalid()
             return
         }
+        if let exercise, !exercise.answer.accepts(.draw) {
+            practiceWrong(exercise.feedback(for: .draw))
+            return
+        }
+        let before = state
         let recycled = state.stock.isEmpty
         commit(next, stagger: recycled ? 0 : 0.06, recordUndo: true, sound: { recycled ? $0.shuffle() : $0.cardFlip() })
         haptics.light()
+        afterPlayerAction(.draw, on: before)
     }
 
     // MARK: - Moves
@@ -194,22 +240,88 @@ final class GameModel: ObservableObject {
     /// were released, so they fly from the finger to their slot instead of from their old pile.
     @discardableResult
     func tryMove(cardID: UUID, from source: PileKind, to destination: PileKind, startRects: [UUID: CGRect] = [:]) -> Bool {
-        guard !isAutoCompleting else { return false }
+        guard !isAutoCompleting, !practiceSolved else { return false }
+        let move = Move(cardID: cardID, source: source, destination: destination)
         var next = state
-        guard next.apply(Move(cardID: cardID, source: source, destination: destination)) else { return false }
-        let toFoundation: Bool = { if case .foundation = destination { return true } else { return false } }()
-        commit(next, startRects: startRects, recordUndo: true, sound: { toFoundation ? $0.foundation() : $0.cardPlace() })
+        guard next.apply(move) else { return false }
+        if let exercise, let attempt = exerciseAnswer(for: move), !exercise.answer.accepts(attempt) {
+            practiceWrong(exercise.feedback(for: attempt))
+            return false
+        }
+        let before = state
+        commit(next, startRects: startRects, recordUndo: true, sound: { destination.isFoundation ? $0.foundation() : $0.cardPlace() })
         haptics.medium()
+        afterPlayerAction(.move(move), on: before)
         return true
     }
 
     /// A single tap: send the card wherever it's most useful, or shake it if it can't go anywhere.
     func smartMove(cardID: UUID, from source: PileKind) {
-        guard !isAutoCompleting else { return }
-        if let destination = state.bestDestination(for: cardID, from: source) {
-            tryMove(cardID: cardID, from: source, to: destination)
-        } else {
-            rejectTap(on: cardID)
+        guard !isAutoCompleting, !practiceSolved else { return }
+        if let destination = practiceDestination(for: cardID, from: source) ?? state.bestDestination(for: cardID, from: source),
+           tryMove(cardID: cardID, from: source, to: destination) {
+            return
+        }
+        rejectTap(on: cardID)
+    }
+
+    // MARK: - Coach & practice
+
+    private func afterPlayerAction(_ action: PlayerAction, on before: GameState) {
+        if let exercise {
+            practiceSolved = true
+            practiceFeedback = .correct(exercise.explanation)
+            haptics.won()
+            return
+        }
+        guard AppPreferences.coachEnabled, let verdict = before.coachVerdict(for: action) else { return }
+        showTip(.verdict(verdict))
+    }
+
+    private func showTip(_ kind: CoachTip.Kind) {
+        tipCounter += 1
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { coachTip = CoachTip(id: tipCounter, kind: kind) }
+        tipTask?.cancel()
+        tipTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 4_500_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation { self?.coachTip = nil }
+        }
+    }
+
+    func dismissTip() {
+        tipTask?.cancel()
+        withAnimation { coachTip = nil }
+    }
+
+    private func practiceWrong(_ text: LocalizedText) {
+        practiceMistakes += 1
+        practiceFeedback = .wrong(text)
+        haptics.invalid()
+    }
+
+    /// The exercise's view of a move: which card went where.
+    private func exerciseAnswer(for move: Move) -> ExerciseAnswer? {
+        guard let location = state.location(of: move.cardID) else { return nil }
+        let code = state.pile(location.pile)[location.index].code
+        switch move.destination {
+        case .foundation: return .move(card: code, to: .foundation)
+        case .tableau(let column): return .move(card: code, to: .column(column))
+        case .stock, .waste: return nil
+        }
+    }
+
+    /// In an exercise, a tap on the answer card sends it to the answer's pile.
+    private func practiceDestination(for cardID: UUID, from source: PileKind) -> PileKind? {
+        guard let exercise, case .move(let code, let target) = exercise.answer,
+              let location = state.location(of: cardID) else { return nil }
+        let card = state.pile(location.pile)[location.index]
+        guard card.code == code else { return nil }
+        switch target {
+        case .foundation: return .foundation(card.suit)
+        case .column(let column): return .tableau(column)
+        case .anyColumn:
+            return state.tableau.indices.map { PileKind.tableau($0) }.first { state.canMove(cardID: cardID, from: source, to: $0) }
         }
     }
 
@@ -234,12 +346,17 @@ final class GameModel: ObservableObject {
     // MARK: - Hint
 
     func requestHint() {
-        guard !isAutoCompleting else { return }
-        if let move = state.usefulMoves().first, let location = state.location(of: move.cardID) {
+        guard !isAutoCompleting, !practiceSolved else { return }
+        if let exercise {
+            practiceHintUsed = true
+            showPracticeAnswer(exercise)
+        } else if let move = state.usefulMoves().first, let location = state.location(of: move.cardID) {
             let ids = state.pile(location.pile)[location.index...].map(\.id)
             hint = Hint(cardIDs: Set(ids), destination: move.destination)
+            showTip(.hint(state.hintReason(for: move)))
         } else if !state.stock.isEmpty || state.canRecycle(settings) {
             hint = Hint(stock: true)
+            showTip(.hint(.drawStock))
         } else {
             hint = nil
             haptics.invalid()
@@ -254,6 +371,19 @@ final class GameModel: ObservableObject {
         }
     }
 
+    private func showPracticeAnswer(_ exercise: Exercise) {
+        switch exercise.answer {
+        case .draw:
+            hint = Hint(stock: true)
+        case .move(let code, _):
+            guard let card = (state.tableau.flatMap { $0 } + state.waste).first(where: { $0.code == code }),
+                  let location = state.location(of: card.id) else { return }
+            let destination = practiceDestination(for: card.id, from: location.pile)
+            let ids = state.pile(location.pile)[location.index...].map(\.id)
+            hint = Hint(cardIDs: Set(ids), destination: destination)
+        }
+    }
+
     private func clearHint() {
         hintTask?.cancel()
         hint = nil
@@ -263,6 +393,7 @@ final class GameModel: ObservableObject {
 
     /// Only the banners animate when these flip; the rest of the board isn't caught in the animation.
     private func evaluate() {
+        guard exercise == nil else { return }
         let available = !isAutoCompleting && state.autoCompletePlan(settings) != nil
         let stuck = !isAutoCompleting && state.isStuck(settings)
         guard available != autoCompleteAvailable || stuck != isStuck else { return }
@@ -307,11 +438,18 @@ final class GameModel: ObservableObject {
     // MARK: - Win
 
     private func checkWin() {
-        guard state.isWon, !winRecorded else { return }
+        guard exercise == nil, state.isWon, !winRecorded else { return }
         winRecorded = true
         stopTimer()
         isAutoCompleting = false
         let records = statsStore.recordWin(time: clock.seconds, score: state.score, moves: state.moves)
+        GameCenter.shared.reportWin(
+            score: state.score,
+            seconds: clock.seconds,
+            drawThree: settings.drawMode == .drawThree,
+            usedUndo: state.undosUsed > 0,
+            stats: statsStore.load()
+        )
         haptics.won()
         sounds.win()
         GameStateStore.clearState()

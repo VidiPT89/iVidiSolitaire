@@ -10,9 +10,11 @@ struct GameState: Codable, Equatable {
     var moves: Int = 0
     var elapsedSeconds: Int = 0
     var recyclesUsed: Int = 0
+    /// How many times the player undid a move this game (a win without undo unlocks an achievement).
+    var undosUsed: Int = 0
 
     init(tableau: [[Card]] = Array(repeating: [], count: 7), foundations: [Suit: [Card]] = [:], stock: [Card] = [], waste: [Card] = [],
-         score: Int = 0, moves: Int = 0, elapsedSeconds: Int = 0, recyclesUsed: Int = 0) {
+         score: Int = 0, moves: Int = 0, elapsedSeconds: Int = 0, recyclesUsed: Int = 0, undosUsed: Int = 0) {
         self.tableau = tableau
         self.foundations = foundations
         self.stock = stock
@@ -21,6 +23,7 @@ struct GameState: Codable, Equatable {
         self.moves = moves
         self.elapsedSeconds = elapsedSeconds
         self.recyclesUsed = recyclesUsed
+        self.undosUsed = undosUsed
     }
 
     // Counters are decoded leniently so a save from an older or newer version still loads
@@ -35,6 +38,7 @@ struct GameState: Codable, Equatable {
         moves = try c.decodeIfPresent(Int.self, forKey: .moves) ?? 0
         elapsedSeconds = try c.decodeIfPresent(Int.self, forKey: .elapsedSeconds) ?? 0
         recyclesUsed = try c.decodeIfPresent(Int.self, forKey: .recyclesUsed) ?? 0
+        undosUsed = try c.decodeIfPresent(Int.self, forKey: .undosUsed) ?? 0
     }
 
     var isWon: Bool {
