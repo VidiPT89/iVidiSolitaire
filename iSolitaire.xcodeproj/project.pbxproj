@@ -26,6 +26,7 @@
 		5DBEA269D3CE1A6837B33C6D /* shuffle.wav in Resources */ = {isa = PBXBuildFile; fileRef = A1FF3B0637FE9836EBCF532E /* shuffle.wav */; };
 		5F2E4DB8251CB6F6D190398A /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 977B723C2F42FABDC57ED284 /* SplashView.swift */; };
 		69BF471DA96C3C7283B5257B /* BoardLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE2C28D2A983DE3CDA120D51 /* BoardLayout.swift */; };
+		6A2443851AB122A7D198258F /* GameModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AB7E695F47FEE67EBD8D069 /* GameModelTests.swift */; };
 		9A37C52C0C9DF57A0BC51D6B /* win.wav in Resources */ = {isa = PBXBuildFile; fileRef = 784D8445F12BB7E9A3157736 /* win.wav */; };
 		9D764937DF1B770D1A391F97 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BEA689D7CFC1E9FAC782B1F /* MenuView.swift */; };
 		9D97FB8EA1898544C168BDAB /* KlondikeRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EA62A9C5C47DF1C302F8435 /* KlondikeRulesTests.swift */; };
@@ -65,6 +66,7 @@
 		3F1CF50F7AFD99E3FA51D2D9 /* CardFlight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardFlight.swift; sourceTree = "<group>"; };
 		3FC7CC8DED2BFD8CEAC6BFEE /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		65C1A8DF936C4077AD10E541 /* PileViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PileViews.swift; sourceTree = "<group>"; };
+		6AB7E695F47FEE67EBD8D069 /* GameModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameModelTests.swift; sourceTree = "<group>"; };
 		6BBFEA48E541E798D1D06A50 /* card_flip.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = card_flip.wav; sourceTree = "<group>"; };
 		6F648CE269DEC5BDB76E5F57 /* deal.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = deal.wav; sourceTree = "<group>"; };
 		784D8445F12BB7E9A3157736 /* win.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = win.wav; sourceTree = "<group>"; };
@@ -155,6 +157,7 @@
 		B91B6790F3E17CA51352414A /* iSolitaireTests */ = {
 			isa = PBXGroup;
 			children = (
+				6AB7E695F47FEE67EBD8D069 /* GameModelTests.swift */,
 				9EA62A9C5C47DF1C302F8435 /* KlondikeRulesTests.swift */,
 			);
 			path = iSolitaireTests;
@@ -340,6 +343,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6A2443851AB122A7D198258F /* GameModelTests.swift in Sources */,
 				9D97FB8EA1898544C168BDAB /* KlondikeRulesTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

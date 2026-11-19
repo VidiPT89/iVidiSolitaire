@@ -61,6 +61,7 @@ final class GameModel: ObservableObject {
         let saved = GameStateStore.loadState().flatMap { $0.isWon ? nil : $0 }
         if !startFresh, let saved {
             self.state = saved
+            undoStack = GameStateStore.loadHistory(for: saved)
             clock.seconds = saved.elapsedSeconds
             evaluate()
             if saved.moves > 0 { startTimer() }
@@ -107,9 +108,11 @@ final class GameModel: ObservableObject {
     func pause() {
         isPaused = true
         stopTimer()
-        if !state.isWon, state.elapsedSeconds != clock.seconds {
+        guard !state.isWon else { return }
+        if state.elapsedSeconds != clock.seconds {
             state.elapsedSeconds = clock.seconds
         }
+        GameStateStore.saveHistory(undoStack, for: state)
     }
 
     func resume() {

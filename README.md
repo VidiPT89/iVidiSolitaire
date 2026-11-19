@@ -11,6 +11,7 @@
 - ✅ Drop targets light up while dragging; invalid drops glide back to where they came from
 - ✅ Smart hints that point at both the card and where it goes (or at the stock), and reliable "no moves left" detection
 - ✅ Auto-complete as soon as the game is decided, even with cards left in the stock
+- ✅ The game and its undo history (last 100 moves) survive closing the app
 - ✅ Long columns squeeze to fit the screen; dedicated landscape layout with a side toolbar
 - ✅ Redesigned cards (pip layouts on large screens), four table themes and five card backs
 - ✅ Sound effects and haptics (each can be turned off), left-handed mode
@@ -53,7 +54,7 @@ Build and run on any iPhone or iPad simulator/device.
 
 ## 🧪 Testing
 
-The Klondike rules (move validation, scoring, hints, stuck detection, auto-complete planning) are pure functions in `KlondikeRules.swift`, covered by the `iSolitaireTests` unit tests:
+The Klondike rules (move validation, scoring, hints, stuck detection, auto-complete planning) are pure functions in `KlondikeRules.swift`, covered by the `iSolitaireTests` unit tests, together with `GameModel` tests (undo, clock, saved games, stats, auto-complete) that run against an isolated `UserDefaults` suite:
 
 ```bash
 xcodebuild -project iSolitaire.xcodeproj -scheme iSolitaire -destination 'platform=iOS Simulator,name=iPhone 17' test

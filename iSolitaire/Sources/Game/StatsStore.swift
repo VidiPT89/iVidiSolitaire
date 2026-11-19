@@ -38,7 +38,7 @@ final class StatsStore {
     private let defaultsKey = "iSolitaire.stats"
 
     func load() -> GameStats {
-        guard let data = UserDefaults.standard.data(forKey: defaultsKey),
+        guard let data = GameStateStore.defaults.data(forKey: defaultsKey),
               let stats = try? JSONDecoder().decode(GameStats.self, from: data) else {
             return GameStats()
         }
@@ -47,7 +47,7 @@ final class StatsStore {
 
     private func save(_ stats: GameStats) {
         guard let data = try? JSONEncoder().encode(stats) else { return }
-        UserDefaults.standard.set(data, forKey: defaultsKey)
+        GameStateStore.defaults.set(data, forKey: defaultsKey)
     }
 
     /// Records a win and reports which personal bests it beat (a first win beats nothing).
@@ -76,6 +76,6 @@ final class StatsStore {
     }
 
     func reset() {
-        UserDefaults.standard.removeObject(forKey: defaultsKey)
+        GameStateStore.defaults.removeObject(forKey: defaultsKey)
     }
 }
