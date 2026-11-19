@@ -21,12 +21,9 @@ struct MenuView: View {
                 VStack(spacing: 22) {
                     Spacer()
 
-                    VStack(spacing: 18) {
-                        HeroFan(cardWidth: 74, spread: fanned ? 1 : 0)
-                        Text(L10n.t(.appName, lang))
-                            .font(.system(size: 38, weight: .heavy, design: .rounded))
-                            .foregroundStyle(textColor)
-                    }
+                    AppLogo(size: 230)
+                        .scaleEffect(fanned ? 1 : 0.92)
+                        .opacity(fanned ? 1 : 0.6)
 
                     Spacer()
 

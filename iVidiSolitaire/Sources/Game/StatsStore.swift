@@ -35,7 +35,7 @@ struct GameStats: Codable, Equatable {
 }
 
 final class StatsStore {
-    private let defaultsKey = "iSolitaire.stats"
+    private let defaultsKey = "iVidiSolitaire.stats"
 
     func load() -> GameStats {
         guard let data = GameStateStore.defaults.data(forKey: defaultsKey),

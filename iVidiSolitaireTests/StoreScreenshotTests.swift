@@ -1,9 +1,9 @@
 import XCTest
 import SwiftUI
-@testable import iSolitaire
+@testable import iVidiSolitaire
 
 /// Renders the App Store screenshots from the real views. Skipped unless a destination folder is given:
-/// `TEST_RUNNER_STORE_SHOTS_DIR=/path xcodebuild test -only-testing:iSolitaireTests/StoreScreenshotTests`.
+/// `TEST_RUNNER_STORE_SHOTS_DIR=/path xcodebuild test -only-testing:iVidiSolitaireTests/StoreScreenshotTests`.
 @MainActor
 final class StoreScreenshotTests: XCTestCase {
     private struct Device {
@@ -20,7 +20,7 @@ final class StoreScreenshotTests: XCTestCase {
                insets: UIEdgeInsets(top: 24, left: 0, bottom: 20, right: 0)),
     ]
 
-    private let preferenceKeys = ["iSolitaire.language", "iSolitaire.tableTheme", "iSolitaire.cardBack", "iSolitaire.colorScheme"]
+    private let preferenceKeys = ["iVidiSolitaire.language", "iVidiSolitaire.tableTheme", "iVidiSolitaire.cardBack", "iVidiSolitaire.colorScheme"]
     private var suiteName = ""
 
     func testStoreScreenshots() async throws {
@@ -29,20 +29,20 @@ final class StoreScreenshotTests: XCTestCase {
         }
         let standard = UserDefaults.standard
         let previous = preferenceKeys.map { standard.object(forKey: $0) }
-        suiteName = "iSolitaireShots.\(UUID().uuidString)"
+        suiteName = "iVidiSolitaireShots.\(UUID().uuidString)"
         GameStateStore.defaults = UserDefaults(suiteName: suiteName)!
         defer {
             for (key, value) in zip(preferenceKeys, previous) { standard.set(value, forKey: key) }
             GameStateStore.defaults.removePersistentDomain(forName: suiteName)
             GameStateStore.defaults = .standard
         }
-        standard.set("dark", forKey: "iSolitaire.colorScheme")
+        standard.set("dark", forKey: "iVidiSolitaire.colorScheme")
         for (id, stars) in ["aces.1": 3, "aces.2": 3, "reveal.1": 3, "reveal.2": 2, "tallest.1": 2, "tallest.2": 3] {
             AcademyProgress.record(stars, for: id)
         }
 
         for (language, code) in [(AppLanguage.portuguese, "pt"), (AppLanguage.english, "en")] {
-            standard.set(language.rawValue, forKey: "iSolitaire.language")
+            standard.set(language.rawValue, forKey: "iVidiSolitaire.language")
             for device in devices {
                 let screens: [(String, TableTheme, CardBackStyle, () -> AnyView)] = [
                     ("1-academy", .ember, .ember, { AnyView(NavigationStack { AcademyView() }) }),
@@ -53,8 +53,8 @@ final class StoreScreenshotTests: XCTestCase {
                     ("6-win", .wine, .onyx, { AnyView(self.winScreen()) }),
                 ]
                 for (name, theme, back, makeView) in screens {
-                    standard.set(theme.rawValue, forKey: "iSolitaire.tableTheme")
-                    standard.set(back.rawValue, forKey: "iSolitaire.cardBack")
+                    standard.set(theme.rawValue, forKey: "iVidiSolitaire.tableTheme")
+                    standard.set(back.rawValue, forKey: "iVidiSolitaire.cardBack")
                     let view = makeView()
                         .environmentObject(AppSettingsStore())
                         .environment(\.appLanguage, language)

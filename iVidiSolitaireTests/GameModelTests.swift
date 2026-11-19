@@ -1,12 +1,12 @@
 import XCTest
-@testable import iSolitaire
+@testable import iVidiSolitaire
 
 @MainActor
 final class GameModelTests: XCTestCase {
     private var suiteName = ""
 
     override func setUp() async throws {
-        suiteName = "iSolitaireTests.\(UUID().uuidString)"
+        suiteName = "iVidiSolitaireTests.\(UUID().uuidString)"
         GameStateStore.defaults = UserDefaults(suiteName: suiteName)!
     }
 

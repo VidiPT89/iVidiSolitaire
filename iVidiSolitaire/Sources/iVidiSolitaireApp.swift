@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct iSolitaireApp: App {
+struct iVidiSolitaireApp: App {
     @StateObject private var appSettings = AppSettingsStore()
 
     var body: some Scene {

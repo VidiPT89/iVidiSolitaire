@@ -103,7 +103,7 @@ struct SettingsView: View {
                             .font(.footnote)
                         Link(L10n.t(.github, lang), destination: URL(string: "https://github.com/VidiPT89/")!)
                             .font(.footnote)
-                        Link(L10n.t(.privacyPolicy, lang), destination: URL(string: "https://github.com/VidiPT89/iSolitaire/blob/main/PRIVACY.md")!)
+                        Link(L10n.t(.privacyPolicy, lang), destination: URL(string: "https://github.com/VidiPT89/iVidiSolitaire/blob/main/PRIVACY.md")!)
                             .font(.footnote)
                     }
                     .foregroundStyle(Theme.ember)

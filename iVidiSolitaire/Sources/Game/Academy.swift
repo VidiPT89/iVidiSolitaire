@@ -464,7 +464,7 @@ enum Academy {
 
 /// Best stars per exercise, saved on the device.
 enum AcademyProgress {
-    private static let key = "iSolitaire.academyStars"
+    private static let key = "iVidiSolitaire.academyStars"
 
     static func stars() -> [String: Int] {
         GameStateStore.defaults.dictionary(forKey: key) as? [String: Int] ?? [:]

@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "59830A9B2F7379F5B52B7F70"
-               BuildableName = "iSolitaire.app"
-               BlueprintName = "iSolitaire"
-               ReferencedContainer = "container:iSolitaire.xcodeproj">
+               BlueprintIdentifier = "4A9F122D01BA6B1E4EB04D08"
+               BuildableName = "iVidiSolitaire.app"
+               BlueprintName = "iVidiSolitaire"
+               ReferencedContainer = "container:iVidiSolitaire.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "59830A9B2F7379F5B52B7F70"
-            BuildableName = "iSolitaire.app"
-            BlueprintName = "iSolitaire"
-            ReferencedContainer = "container:iSolitaire.xcodeproj">
+            BlueprintIdentifier = "4A9F122D01BA6B1E4EB04D08"
+            BuildableName = "iVidiSolitaire.app"
+            BlueprintName = "iVidiSolitaire"
+            ReferencedContainer = "container:iVidiSolitaire.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -44,10 +44,10 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "9C017A9299998EB429FF11C7"
-               BuildableName = "iSolitaireTests.xctest"
-               BlueprintName = "iSolitaireTests"
-               ReferencedContainer = "container:iSolitaire.xcodeproj">
+               BlueprintIdentifier = "AFC9E32A05DBB943CD1522C4"
+               BuildableName = "iVidiSolitaireTests.xctest"
+               BlueprintName = "iVidiSolitaireTests"
+               ReferencedContainer = "container:iVidiSolitaire.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -68,10 +68,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "59830A9B2F7379F5B52B7F70"
-            BuildableName = "iSolitaire.app"
-            BlueprintName = "iSolitaire"
-            ReferencedContainer = "container:iSolitaire.xcodeproj">
+            BlueprintIdentifier = "4A9F122D01BA6B1E4EB04D08"
+            BuildableName = "iVidiSolitaire.app"
+            BlueprintName = "iVidiSolitaire"
+            ReferencedContainer = "container:iVidiSolitaire.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -87,10 +87,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "59830A9B2F7379F5B52B7F70"
-            BuildableName = "iSolitaire.app"
-            BlueprintName = "iSolitaire"
-            ReferencedContainer = "container:iSolitaire.xcodeproj">
+            BlueprintIdentifier = "4A9F122D01BA6B1E4EB04D08"
+            BuildableName = "iVidiSolitaire.app"
+            BlueprintName = "iVidiSolitaire"
+            ReferencedContainer = "container:iVidiSolitaire.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>

@@ -2,7 +2,7 @@
 
 > Klondike Solitaire that teaches you to win: an Academy of strategy lessons, a coach at the table, and Game Center.
 
-[Report Bug](https://github.com/VidiPT89/iSolitaire/issues) · [Request Feature](https://github.com/VidiPT89/iSolitaire/issues)
+[Report Bug](https://github.com/VidiPT89/iVidiSolitaire/issues) · [Request Feature](https://github.com/VidiPT89/iVidiSolitaire/issues)
 
 ## ✨ Features
 
@@ -41,9 +41,9 @@
 
 ### Installation
 ```bash
-git clone https://github.com/VidiPT89/iSolitaire.git
-cd iSolitaire
-open iSolitaire.xcodeproj
+git clone https://github.com/VidiPT89/iVidiSolitaire.git
+cd iVidiSolitaire
+open iVidiSolitaire.xcodeproj
 ```
 
 Build and run on any iPhone or iPad simulator/device.
@@ -57,10 +57,10 @@ Build and run on any iPhone or iPad simulator/device.
 
 ## 🧪 Testing
 
-The Klondike rules (move validation, scoring, hints, stuck detection, auto-complete planning) are pure functions in `KlondikeRules.swift`, covered by the `iSolitaireTests` unit tests, together with `GameModel` tests (undo, clock, saved games, stats, auto-complete) that run against an isolated `UserDefaults` suite:
+The Klondike rules (move validation, scoring, hints, stuck detection, auto-complete planning) are pure functions in `KlondikeRules.swift`, covered by the `iVidiSolitaireTests` unit tests, together with `GameModel` tests (undo, clock, saved games, stats, auto-complete) that run against an isolated `UserDefaults` suite:
 
 ```bash
-xcodebuild -project iSolitaire.xcodeproj -scheme iSolitaire -destination 'platform=iOS Simulator,name=iPhone 17' test
+xcodebuild -project iVidiSolitaire.xcodeproj -scheme iVidiSolitaire -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
 The project is generated with [XcodeGen](https://github.com/yonaskolb/XcodeGen) from `project.yml` (`xcodegen generate`).
@@ -81,7 +81,7 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## 🤝 Contributing
 
-Contributions, issues and feature requests are welcome. Feel free to check the [issues page](https://github.com/VidiPT89/iSolitaire/issues).
+Contributions, issues and feature requests are welcome. Feel free to check the [issues page](https://github.com/VidiPT89/iVidiSolitaire/issues).
 
 ---
 

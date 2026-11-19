@@ -1,5 +1,5 @@
 import XCTest
-@testable import iSolitaire
+@testable import iVidiSolitaire
 
 final class KlondikeRulesTests: XCTestCase {
     private func card(_ rank: Rank, _ suit: Suit, up: Bool = true) -> Card {

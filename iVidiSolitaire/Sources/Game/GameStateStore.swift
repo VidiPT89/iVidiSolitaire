@@ -6,9 +6,9 @@ enum GameStateStore {
     /// Swapped for an isolated suite in tests so they never touch the real saved game.
     static var defaults: UserDefaults = .standard
 
-    private static let stateKey = "iSolitaire.savedState"
-    private static let historyKey = "iSolitaire.undoHistory"
-    private static let settingsKey = "iSolitaire.savedSettings"
+    private static let stateKey = "iVidiSolitaire.savedState"
+    private static let historyKey = "iVidiSolitaire.undoHistory"
+    private static let settingsKey = "iVidiSolitaire.savedSettings"
 
     /// How many undo steps survive the app being closed.
     static let savedHistoryLimit = 100

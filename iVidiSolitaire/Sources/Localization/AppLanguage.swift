@@ -33,9 +33,9 @@ enum AppColorScheme: String, CaseIterable, Codable {
 /// UserDefaults keys shared by the settings screen (through `AppSettingsStore`) and the
 /// game's sound/haptics players, which read them directly at play time.
 enum AppPreferences {
-    static let soundKey = "iSolitaire.soundEnabled"
-    static let hapticsKey = "iSolitaire.hapticsEnabled"
-    static let coachKey = "iSolitaire.coachEnabled"
+    static let soundKey = "iVidiSolitaire.soundEnabled"
+    static let hapticsKey = "iVidiSolitaire.hapticsEnabled"
+    static let coachKey = "iVidiSolitaire.coachEnabled"
 
     static var soundEnabled: Bool { UserDefaults.standard.object(forKey: soundKey) as? Bool ?? true }
     static var hapticsEnabled: Bool { UserDefaults.standard.object(forKey: hapticsKey) as? Bool ?? true }
@@ -43,11 +43,11 @@ enum AppPreferences {
 }
 
 final class AppSettingsStore: ObservableObject {
-    @AppStorage("iSolitaire.language") var languageRaw: String = AppLanguage.systemDefault().rawValue
-    @AppStorage("iSolitaire.colorScheme") var colorSchemeRaw: String = AppColorScheme.system.rawValue
-    @AppStorage("iSolitaire.tableTheme") var tableThemeRaw: String = TableTheme.ember.rawValue
-    @AppStorage("iSolitaire.cardBack") var cardBackRaw: String = CardBackStyle.ember.rawValue
-    @AppStorage("iSolitaire.leftHanded") var leftHanded: Bool = false
+    @AppStorage("iVidiSolitaire.language") var languageRaw: String = AppLanguage.systemDefault().rawValue
+    @AppStorage("iVidiSolitaire.colorScheme") var colorSchemeRaw: String = AppColorScheme.system.rawValue
+    @AppStorage("iVidiSolitaire.tableTheme") var tableThemeRaw: String = TableTheme.ember.rawValue
+    @AppStorage("iVidiSolitaire.cardBack") var cardBackRaw: String = CardBackStyle.ember.rawValue
+    @AppStorage("iVidiSolitaire.leftHanded") var leftHanded: Bool = false
     @AppStorage(AppPreferences.soundKey) var soundEnabled: Bool = true
     @AppStorage(AppPreferences.hapticsKey) var hapticsEnabled: Bool = true
     @AppStorage(AppPreferences.coachKey) var coachEnabled: Bool = true

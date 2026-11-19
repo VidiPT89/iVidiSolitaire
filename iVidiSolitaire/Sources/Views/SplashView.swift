@@ -5,7 +5,6 @@ struct SplashView: View {
     @State private var showMenu = false
     @State private var logoScale: CGFloat = 0.7
     @State private var logoOpacity: Double = 0
-    @State private var spread: CGFloat = 0
     @State private var creditsOpacity: Double = 0
 
     private var lang: AppLanguage { appSettings.language }
@@ -32,12 +31,7 @@ struct SplashView: View {
             VStack(spacing: 28) {
                 Spacer()
 
-                VStack(spacing: 20) {
-                    HeroFan(cardWidth: 80, spread: spread)
-                    Text(L10n.t(.appName, lang))
-                        .font(.system(size: 42, weight: .heavy, design: .rounded))
-                        .foregroundStyle(Theme.cream)
-                }
+                AppLogo(size: 260)
                 .scaleEffect(logoScale)
                 .opacity(logoOpacity)
 
@@ -61,9 +55,6 @@ struct SplashView: View {
             withAnimation(.spring(response: 0.7, dampingFraction: 0.65)) {
                 logoScale = 1
                 logoOpacity = 1
-            }
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.6).delay(0.35)) {
-                spread = 1
             }
             withAnimation(.easeIn(duration: 0.6).delay(0.5)) {
                 creditsOpacity = 1
