@@ -7,50 +7,50 @@ struct MenuView: View {
     @State private var showStats = false
     @State private var hasResumableGame = false
     @State private var standaloneSettings = GameStateStore.loadSettings() ?? GameSettings()
+    @State private var fanned = false
 
     private var lang: AppLanguage { appSettings.language }
-    private var textColor: Color { Theme.primaryText(for: colorScheme) }
+    private var theme: TableTheme { appSettings.tableTheme }
+    private var textColor: Color { theme.textColor(colorScheme) }
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Theme.tableFelt(for: colorScheme).ignoresSafeArea()
+                TableBackground(theme: theme, scheme: colorScheme).equatable()
 
                 VStack(spacing: 22) {
                     Spacer()
 
-                    VStack(spacing: 8) {
-                        Image(systemName: "suit.spade.fill")
-                            .font(.system(size: 56))
-                            .foregroundStyle(Theme.accentGradient)
+                    VStack(spacing: 18) {
+                        HeroFan(cardWidth: 74, spread: fanned ? 1 : 0)
                         Text(L10n.t(.appName, lang))
-                            .font(.system(size: 34, weight: .heavy, design: .rounded))
+                            .font(.system(size: 38, weight: .heavy, design: .rounded))
                             .foregroundStyle(textColor)
                     }
 
                     Spacer()
 
-                    VStack(spacing: 14) {
+                    VStack(spacing: 12) {
                         if hasResumableGame {
                             NavigationLink(value: Route.board(startFresh: false)) {
                                 menuButton(L10n.t(.continueGame, lang), icon: "play.fill", primary: true)
                             }
                         }
                         NavigationLink(value: Route.board(startFresh: true)) {
-                            menuButton(L10n.t(.newGame, lang), icon: "arrow.clockwise", primary: !hasResumableGame)
+                            menuButton(L10n.t(.newGame, lang), icon: "plus.rectangle.on.rectangle", primary: !hasResumableGame)
                         }
-                        Button {
-                            showStats = true
-                        } label: {
-                            menuButton(L10n.t(.stats, lang), icon: "chart.bar.fill", primary: false)
-                        }
-                        Button {
-                            showSettings = true
-                        } label: {
-                            menuButton(L10n.t(.settings, lang), icon: "gearshape.fill", primary: false)
+                        HStack(spacing: 12) {
+                            Button { showStats = true } label: {
+                                menuButton(L10n.t(.stats, lang), icon: "chart.bar.fill", primary: false)
+                            }
+                            Button { showSettings = true } label: {
+                                menuButton(L10n.t(.settings, lang), icon: "gearshape.fill", primary: false)
+                            }
                         }
                     }
-                    .padding(.horizontal, 32)
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: 420)
+                    .padding(.horizontal, 28)
 
                     Spacer()
 
@@ -63,8 +63,8 @@ struct MenuView: View {
                         .font(.caption2)
                     }
                     .foregroundStyle(textColor.opacity(0.7))
-                    .tint(Theme.ember)
-                    .padding(.bottom, 24)
+                    .tint(theme.isLight(colorScheme) ? Theme.ember : Theme.gold)
+                    .padding(.bottom, 20)
                 }
             }
             .navigationDestination(for: Route.self) { route in
@@ -74,9 +74,11 @@ struct MenuView: View {
                 }
             }
             .onAppear {
-                hasResumableGame = GameStateStore.loadState().map { !$0.isWon } ?? false
+                hasResumableGame = GameStateStore.loadState().map { !$0.isWon && $0.moves > 0 } ?? false
                 standaloneSettings = GameStateStore.loadSettings() ?? GameSettings()
+                withAnimation(.spring(response: 0.7, dampingFraction: 0.7).delay(0.1)) { fanned = true }
             }
+            .onDisappear { fanned = false }
             .sheet(isPresented: $showSettings) {
                 SettingsView(gameSettings: $standaloneSettings).environmentObject(appSettings)
             }
@@ -87,20 +89,28 @@ struct MenuView: View {
                 GameStateStore.saveSettings(newValue)
             }
         }
+        .tint(Theme.ember)
     }
 
     private func menuButton(_ title: String, icon: String, primary: Bool) -> some View {
-        HStack {
+        HStack(spacing: 10) {
             Image(systemName: icon)
             Text(title).font(.headline)
-            Spacer()
+            if primary { Spacer(minLength: 0) }
         }
-        .padding()
+        .frame(maxWidth: .infinity, alignment: primary ? .leading : .center)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 18)
         .foregroundStyle(primary ? .white : textColor)
-        .background(
-            primary ? AnyShapeStyle(Theme.accentGradient) : AnyShapeStyle(Color.primary.opacity(0.08)),
-            in: RoundedRectangle(cornerRadius: 14)
-        )
+        .background {
+            if primary {
+                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.accentGradient)
+                    .shadow(color: Theme.ember.opacity(0.35), radius: 10, y: 4)
+            } else {
+                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial)
+            }
+        }
+        .contentShape(Rectangle())
     }
 }
 

@@ -3,27 +3,40 @@ import Foundation
 import UIKit
 #endif
 
-/// Light haptic feedback on successful actions. iPhone only — a no-op on iPad, which has no Taptic Engine.
+/// Haptic feedback for game actions. A no-op on devices without a Taptic Engine,
+/// and when the player turns haptics off.
 final class HapticsPlayer {
     #if canImport(UIKit)
-    private let impact = UIImpactFeedbackGenerator(style: .light)
+    private let lightImpact = UIImpactFeedbackGenerator(style: .light)
+    private let mediumImpact = UIImpactFeedbackGenerator(style: .medium)
+    private let rigidImpact = UIImpactFeedbackGenerator(style: .rigid)
     private let notification = UINotificationFeedbackGenerator()
     #endif
 
-    func cardDrawn() {
+    func light() {
         #if canImport(UIKit)
-        impact.impactOccurred(intensity: 0.5)
+        guard AppPreferences.hapticsEnabled else { return }
+        lightImpact.impactOccurred(intensity: 0.6)
         #endif
     }
 
-    func moveSucceeded() {
+    func medium() {
         #if canImport(UIKit)
-        impact.impactOccurred()
+        guard AppPreferences.hapticsEnabled else { return }
+        mediumImpact.impactOccurred(intensity: 0.8)
         #endif
     }
 
-    func gameWon() {
+    func invalid() {
         #if canImport(UIKit)
+        guard AppPreferences.hapticsEnabled else { return }
+        rigidImpact.impactOccurred(intensity: 0.5)
+        #endif
+    }
+
+    func won() {
+        #if canImport(UIKit)
+        guard AppPreferences.hapticsEnabled else { return }
         notification.notificationOccurred(.success)
         #endif
     }

@@ -1,6 +1,28 @@
+import CoreGraphics
 import Foundation
-import Combine
 import SwiftUI
+
+/// What the Hint button is pointing at.
+struct Hint: Equatable {
+    var cardIDs: Set<UUID> = []
+    var destination: PileKind?
+    var stock = false
+}
+
+struct WinResult: Equatable {
+    let score: Int
+    let seconds: Int
+    let moves: Int
+    let isBestTime: Bool
+    let isBestScore: Bool
+}
+
+/// The game clock lives apart from `state`, so its once-a-second tick only redraws the time
+/// label (not all 52 cards), and undoing a move never winds the clock back.
+@MainActor
+final class GameClock: ObservableObject {
+    @Published var seconds = 0
+}
 
 @MainActor
 final class GameModel: ObservableObject {
@@ -8,393 +30,299 @@ final class GameModel: ObservableObject {
         didSet { GameStateStore.saveState(state) }
     }
     @Published var settings: GameSettings {
-        didSet { GameStateStore.saveSettings(settings) }
+        didSet {
+            GameStateStore.saveSettings(settings)
+            evaluate()
+        }
     }
-    @Published var hintedCardID: UUID?
-    @Published var lastAutoCompleteAvailable: Bool = false
-    @Published private(set) var isStuck: Bool = false
-    @Published var wonAnimationTrigger: Int = 0
+    @Published private(set) var hint: Hint?
+    @Published private(set) var autoCompleteAvailable = false
+    @Published private(set) var isAutoCompleting = false
+    @Published private(set) var isStuck = false
+    @Published private(set) var winResult: WinResult?
+    @Published private(set) var flights: [UUID: CardFlight] = [:]
+    /// Bumped per card when a tap can't go anywhere, so just that card shakes.
+    @Published private(set) var shakeCounts: [UUID: Int] = [:]
+
+    let clock = GameClock()
 
     private var undoStack: [GameState] = []
     private var timer: Timer?
+    private var isPaused = false
+    private var winRecorded = false
+    private var flightToken = 0
+    private var hintTask: Task<Void, Never>?
     private let statsStore = StatsStore()
-    private let impactFeedback = HapticsPlayer()
-    private let soundPlayer = SoundPlayer()
+    private let haptics = HapticsPlayer()
+    private let sounds = SoundPlayer()
 
     init(settings: GameSettings? = nil, startFresh: Bool = false) {
         self.settings = settings ?? GameStateStore.loadSettings() ?? GameSettings()
         let saved = GameStateStore.loadState().flatMap { $0.isWon ? nil : $0 }
         if !startFresh, let saved {
             self.state = saved
-            evaluateAutoComplete()
-            evaluateStuckState()
-            startTimer()
+            clock.seconds = saved.elapsedSeconds
+            evaluate()
+            if saved.moves > 0 { startTimer() }
         } else {
             self.state = saved ?? GameState()
             newGame()
         }
     }
 
+    var canUndo: Bool { !undoStack.isEmpty && !isAutoCompleting }
+
+    func isFlying(_ cardID: UUID) -> Bool { flights[cardID] != nil }
+
     // MARK: - Setup
 
     func newGame() {
         recordAbandonIfInProgress()
         stopTimer()
-        var deck = Card.standardDeck().shuffled()
-        var tableau: [[Card]] = Array(repeating: [], count: 7)
-        for column in 0..<7 {
-            for row in 0...column {
-                var card = deck.removeLast()
-                card.isFaceUp = (row == column)
-                tableau[column].append(card)
-            }
-        }
-        var foundations: [Suit: [Card]] = [:]
-        for suit in Suit.allCases { foundations[suit] = [] }
-
-        state = GameState(
-            tableau: tableau,
-            foundations: foundations,
-            stock: deck.map { c in var c = c; c.isFaceUp = false; return c },
-            waste: [],
-            score: 0,
-            moves: 0,
-            elapsedSeconds: 0,
-            recyclesUsed: 0
-        )
         undoStack.removeAll()
-        hintedCardID = nil
-        lastAutoCompleteAvailable = false
-        isStuck = false
-        startTimer()
+        winResult = nil
+        winRecorded = false
+        isAutoCompleting = false
+        shakeCounts.removeAll()
+        clock.seconds = 0
+        commit(.newDeal(), sound: { $0.deal() })
     }
 
     // MARK: - Timer
 
+    /// The clock starts with the first move, not the deal, so looking at a fresh board is free.
     private func startTimer() {
-        timer?.invalidate()
+        guard timer == nil, !isPaused, !state.isWon else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.state.elapsedSeconds += 1 }
+            Task { @MainActor in self?.clock.seconds += 1 }
         }
     }
 
-    func stopTimer() {
+    private func stopTimer() {
         timer?.invalidate()
         timer = nil
     }
 
+    /// Stops the clock and saves the time played, e.g. when the app goes to the background.
+    func pause() {
+        isPaused = true
+        stopTimer()
+        if !state.isWon, state.elapsedSeconds != clock.seconds {
+            state.elapsedSeconds = clock.seconds
+        }
+    }
+
+    func resume() {
+        isPaused = false
+        if state.moves > 0 { startTimer() }
+    }
+
+    // MARK: - Applying changes
+
+    /// Replaces the state in one go, so the card flights and the new board land in the same frame.
+    private func commit(
+        _ committed: GameState,
+        startRects: [UUID: CGRect] = [:],
+        stagger: Double = 0,
+        recordUndo: Bool = false,
+        sound: ((SoundPlayer) -> Void)? = nil
+    ) {
+        var newState = committed
+        newState.elapsedSeconds = clock.seconds
+        if recordUndo {
+            undoStack.append(state)
+            if undoStack.count > 300 { undoStack.removeFirst() }
+        }
+        let newFlights = CardFlight.diff(from: state, to: newState, startRects: startRects, stagger: stagger) {
+            flightToken += 1
+            return flightToken
+        }
+        state = newState
+        launch(newFlights)
+        sound?(sounds)
+        clearHint()
+        evaluate()
+        if state.moves > 0 { startTimer() }
+        checkWin()
+    }
+
+    private func launch(_ newFlights: [CardFlight]) {
+        guard !newFlights.isEmpty else { return }
+        for flight in newFlights { flights[flight.cardID] = flight }
+        let longest = newFlights.map(\.delay).max() ?? 0
+        let tokens = Set(newFlights.map(\.token))
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64((longest + CardFlight.duration + 0.04) * 1_000_000_000))
+            guard let self else { return }
+            self.flights = self.flights.filter { !tokens.contains($0.value.token) }
+        }
+    }
+
     // MARK: - Undo
 
-    private func pushUndo() {
-        undoStack.append(state)
-        if undoStack.count > 200 { undoStack.removeFirst() }
-    }
-
     func undo() {
-        guard let previous = undoStack.popLast() else { return }
-        state = previous
-        hintedCardID = nil
-        evaluateAutoComplete()
-        evaluateStuckState()
+        guard canUndo, let previous = undoStack.popLast() else { return }
+        winResult = nil
+        commit(previous, sound: { $0.cardPlace() })
+        haptics.light()
     }
 
-    var canUndo: Bool { !undoStack.isEmpty }
-
-    // MARK: - Stock / Waste
+    // MARK: - Stock
 
     func drawFromStock() {
-        pushUndo()
-        if state.stock.isEmpty {
-            if settings.recycleMode == .limited && state.recyclesUsed >= settings.recycleLimit {
-                undoStack.removeLast()
-                return
-            }
-            state.stock = state.waste.reversed().map { c in var c = c; c.isFaceUp = false; return c }
-            state.waste.removeAll()
-            state.recyclesUsed += 1
-            state.score = max(0, state.score - 20)
+        guard !isAutoCompleting else { return }
+        var next = state
+        guard next.draw(settings) else {
+            haptics.invalid()
+            return
+        }
+        let recycled = state.stock.isEmpty
+        commit(next, stagger: recycled ? 0 : 0.06, recordUndo: true, sound: { recycled ? $0.shuffle() : $0.cardFlip() })
+        haptics.light()
+    }
+
+    // MARK: - Moves
+
+    func canMove(cardID: UUID, from source: PileKind, to destination: PileKind) -> Bool {
+        state.canMove(cardID: cardID, from: source, to: destination)
+    }
+
+    /// Moves a card (or the run starting at it). `startRects` are where the dragged cards
+    /// were released, so they fly from the finger to their slot instead of from their old pile.
+    @discardableResult
+    func tryMove(cardID: UUID, from source: PileKind, to destination: PileKind, startRects: [UUID: CGRect] = [:]) -> Bool {
+        guard !isAutoCompleting else { return false }
+        var next = state
+        guard next.apply(Move(cardID: cardID, source: source, destination: destination)) else { return false }
+        let toFoundation: Bool = { if case .foundation = destination { return true } else { return false } }()
+        commit(next, startRects: startRects, recordUndo: true, sound: { toFoundation ? $0.foundation() : $0.cardPlace() })
+        haptics.medium()
+        return true
+    }
+
+    /// A single tap: send the card wherever it's most useful, or shake it if it can't go anywhere.
+    func smartMove(cardID: UUID, from source: PileKind) {
+        guard !isAutoCompleting else { return }
+        if let destination = state.bestDestination(for: cardID, from: source) {
+            tryMove(cardID: cardID, from: source, to: destination)
         } else {
-            let count = settings.drawMode == .drawOne ? 1 : 3
-            for _ in 0..<min(count, state.stock.count) {
-                var card = state.stock.removeLast()
-                card.isFaceUp = true
-                state.waste.append(card)
-            }
-        }
-        state.moves += 1
-        hintedCardID = nil
-        impactFeedback.cardDrawn()
-        soundPlayer.cardFlip()
-        evaluateAutoComplete()
-        evaluateStuckState()
-    }
-
-    // MARK: - Move validation
-
-    private func canPlace(_ card: Card, onTableauTop top: Card?) -> Bool {
-        guard let top else { return card.rank == .king }
-        return top.isFaceUp && top.suit.isRed != card.suit.isRed && top.rank.rawValue == card.rank.rawValue + 1
-    }
-
-    private func canPlace(_ card: Card, onFoundation suit: Suit) -> Bool {
-        guard card.suit == suit else { return false }
-        let pile = state.foundations[suit] ?? []
-        if pile.isEmpty { return card.rank == .ace }
-        return pile.last!.rank.rawValue + 1 == card.rank.rawValue
-    }
-
-    /// Attempt to move a run of cards starting at `card` from waste or a tableau column to a target pile.
-    @discardableResult
-    func tryMove(cardID: UUID, from source: PileKind, to destination: PileKind) -> Bool {
-        guard let run = extractRun(cardID: cardID, from: source) else { return false }
-        guard isValidRun(run) else { return false }
-
-        switch destination {
-        case .foundation(let suit):
-            guard run.count == 1, canPlace(run[0], onFoundation: suit) else { return false }
-        case .tableau(let column):
-            let top = state.tableau[column].last
-            guard canPlace(run[0], onTableauTop: top) else { return false }
-        case .stock, .waste:
-            return false
-        }
-
-        pushUndo()
-        remove(run, from: source)
-        append(run, to: destination)
-        flipNewTopCardIfNeeded(in: source)
-        state.moves += 1
-        state.score += scoreDelta(from: source, to: destination)
-        hintedCardID = nil
-        impactFeedback.moveSucceeded()
-        soundPlayer.cardPlace()
-        checkWin()
-        evaluateAutoComplete()
-        evaluateStuckState()
-        return true
-    }
-
-    private func scoreDelta(from source: PileKind, to destination: PileKind) -> Int {
-        switch (source, destination) {
-        case (.waste, .foundation): return 10
-        case (.tableau, .foundation): return 10
-        case (.foundation, .tableau): return -15
-        case (.waste, .tableau): return 5
-        default: return 0
+            rejectTap(on: cardID)
         }
     }
 
-    private func extractRun(cardID: UUID, from source: PileKind) -> [Card]? {
-        switch source {
-        case .waste:
-            guard let card = state.waste.last, card.id == cardID else { return nil }
-            return [card]
-        case .foundation(let suit):
-            guard let card = state.foundations[suit]?.last, card.id == cardID else { return nil }
-            return [card]
-        case .tableau(let column):
-            let pile = state.tableau[column]
-            guard let idx = pile.firstIndex(where: { $0.id == cardID }) else { return nil }
-            guard pile[idx].isFaceUp else { return nil }
-            return Array(pile[idx...])
-        case .stock:
-            return nil
+    /// Sends cards that were dropped in an invalid spot back to their pile from the drop point.
+    func flyBack(startRects: [UUID: CGRect]) {
+        let backFlights: [CardFlight] = startRects.compactMap { cardID, rect in
+            guard let location = state.location(of: cardID) else { return nil }
+            let card = state.pile(location.pile)[location.index]
+            let slot = PileSlot(pile: location.pile, index: location.index, in: state)
+            flightToken += 1
+            return CardFlight(token: flightToken, fromCard: card, toCard: card, from: slot, to: slot, fromRect: rect, delay: 0)
         }
+        launch(backFlights)
+        haptics.invalid()
     }
 
-    private func isValidRun(_ run: [Card]) -> Bool {
-        guard run.count > 1 else { return true }
-        for i in 0..<run.count - 1 {
-            let a = run[i], b = run[i + 1]
-            if a.suit.isRed == b.suit.isRed { return false }
-            if a.rank.rawValue != b.rank.rawValue + 1 { return false }
-        }
-        return true
-    }
-
-    private func remove(_ run: [Card], from source: PileKind) {
-        switch source {
-        case .waste:
-            state.waste.removeLast(run.count)
-        case .foundation(let suit):
-            state.foundations[suit]?.removeLast(run.count)
-        case .tableau(let column):
-            state.tableau[column].removeLast(run.count)
-        case .stock:
-            break
-        }
-    }
-
-    private func append(_ run: [Card], to destination: PileKind) {
-        switch destination {
-        case .foundation(let suit):
-            state.foundations[suit, default: []].append(contentsOf: run)
-        case .tableau(let column):
-            state.tableau[column].append(contentsOf: run)
-        case .waste, .stock:
-            break
-        }
-    }
-
-    private func flipNewTopCardIfNeeded(in source: PileKind) {
-        if case .tableau(let column) = source {
-            if var last = state.tableau[column].last, !last.isFaceUp {
-                last.isFaceUp = true
-                state.tableau[column][state.tableau[column].count - 1] = last
-                state.score += 5
-            }
-        }
-    }
-
-    // MARK: - Double tap auto move to foundation
-
-    @discardableResult
-    func tryAutoMoveToFoundation(cardID: UUID, from source: PileKind) -> Bool {
-        guard let run = extractRun(cardID: cardID, from: source), run.count == 1 else { return false }
-        let card = run[0]
-        return tryMove(cardID: cardID, from: source, to: .foundation(card.suit))
+    private func rejectTap(on cardID: UUID) {
+        shakeCounts[cardID, default: 0] += 1
+        haptics.invalid()
     }
 
     // MARK: - Hint
 
-    /// A King already alone at the top of its column has nothing to gain from moving to
-    /// another empty column — same card, same "alone in an empty-ish column" state, just
-    /// shuffled sideways. Excluding it stops the hint (and stuck-detection) from suggesting
-    /// a technically-legal move that changes nothing.
-    private func isMeaningfulTableauMove(_ card: Card, from sourceColumn: Int, onTableauTop top: Card?) -> Bool {
-        guard canPlace(card, onTableauTop: top) else { return false }
-        if top == nil, card.rank == .king, state.tableau[sourceColumn].count == 1 { return false }
-        return true
-    }
-
     func requestHint() {
-        for column in state.tableau.indices {
-            guard let top = state.tableau[column].last, top.isFaceUp else { continue }
-            if canPlace(top, onFoundation: top.suit) {
-                hintedCardID = top.id
-                return
-            }
-        }
-        if let top = state.waste.last, canPlace(top, onFoundation: top.suit) {
-            hintedCardID = top.id
+        guard !isAutoCompleting else { return }
+        if let move = state.usefulMoves().first, let location = state.location(of: move.cardID) {
+            let ids = state.pile(location.pile)[location.index...].map(\.id)
+            hint = Hint(cardIDs: Set(ids), destination: move.destination)
+        } else if !state.stock.isEmpty || state.canRecycle(settings) {
+            hint = Hint(stock: true)
+        } else {
+            hint = nil
+            haptics.invalid()
             return
         }
-        for column in state.tableau.indices {
-            guard let top = state.tableau[column].last, top.isFaceUp else { continue }
-            for other in state.tableau.indices where other != column {
-                if isMeaningfulTableauMove(top, from: column, onTableauTop: state.tableau[other].last) {
-                    hintedCardID = top.id
-                    return
-                }
-            }
+        haptics.light()
+        hintTask?.cancel()
+        hintTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 2_600_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation { self?.hint = nil }
         }
-        if let top = state.waste.last {
-            for column in state.tableau.indices {
-                if canPlace(top, onTableauTop: state.tableau[column].last) {
-                    hintedCardID = top.id
-                    return
-                }
-            }
-        }
-        hintedCardID = nil
     }
 
-    // MARK: - Auto-complete
-
-    private func evaluateAutoComplete() {
-        let allFaceUp = state.tableau.allSatisfy { column in column.allSatisfy { $0.isFaceUp } }
-        lastAutoCompleteAvailable = allFaceUp && state.stock.isEmpty
+    private func clearHint() {
+        hintTask?.cancel()
+        hint = nil
     }
 
-    // MARK: - Stuck detection
+    // MARK: - Auto-complete & stuck detection
 
-    /// Whether drawing (or recycling the waste back into the stock) could still change the board.
-    private var canDrawOrRecycle: Bool {
-        if !state.stock.isEmpty { return true }
-        if state.waste.isEmpty { return false }
-        if settings.recycleMode == .limited && state.recyclesUsed >= settings.recycleLimit { return false }
-        return true
-    }
-
-    /// Same move set `requestHint()` looks for (foundation moves and tableau-to-tableau
-    /// moves from the top of each pile), just returning whether any exists instead of
-    /// highlighting one.
-    private var hasAnyTopCardMove: Bool {
-        for column in state.tableau.indices {
-            guard let top = state.tableau[column].last, top.isFaceUp else { continue }
-            if canPlace(top, onFoundation: top.suit) { return true }
+    /// Only the banners animate when these flip; the rest of the board isn't caught in the animation.
+    private func evaluate() {
+        let available = !isAutoCompleting && state.autoCompletePlan(settings) != nil
+        let stuck = !isAutoCompleting && state.isStuck(settings)
+        guard available != autoCompleteAvailable || stuck != isStuck else { return }
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            autoCompleteAvailable = available
+            isStuck = stuck
         }
-        if let top = state.waste.last, canPlace(top, onFoundation: top.suit) { return true }
-        for column in state.tableau.indices {
-            guard let top = state.tableau[column].last, top.isFaceUp else { continue }
-            for other in state.tableau.indices where other != column {
-                if isMeaningfulTableauMove(top, from: column, onTableauTop: state.tableau[other].last) { return true }
-            }
-        }
-        if let top = state.waste.last {
-            for column in state.tableau.indices where canPlace(top, onTableauTop: state.tableau[column].last) {
-                return true
-            }
-        }
-        return false
-    }
-
-    private func evaluateStuckState() {
-        isStuck = !canDrawOrRecycle && !hasAnyTopCardMove && !state.isWon
     }
 
     func autoComplete() {
-        guard lastAutoCompleteAvailable else { return }
-        pushUndo()
+        guard !isAutoCompleting, let plan = state.autoCompletePlan(settings) else { return }
+        undoStack.append(state)
+        isAutoCompleting = true
+        autoCompleteAvailable = false
         Task { @MainActor [weak self] in
-            await self?.runAutoCompleteCascade()
+            await self?.run(plan)
         }
     }
 
-    /// Moves one card to its foundation at a time, with a short pause between each,
-    /// so the finish reads as a cascade rather than an instant jump.
-    private func runAutoCompleteCascade() async {
-        while true {
-            var moved = false
-            if let top = state.waste.last, canPlace(top, onFoundation: top.suit) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                    let card = state.waste.removeLast()
-                    state.foundations[card.suit, default: []].append(card)
-                    state.score += 10
-                }
-                moved = true
-            } else {
-                for column in state.tableau.indices {
-                    if let top = state.tableau[column].last, top.isFaceUp, canPlace(top, onFoundation: top.suit) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                            state.tableau[column].removeLast()
-                            state.foundations[top.suit, default: []].append(top)
-                            state.score += 10
-                        }
-                        moved = true
-                        break
-                    }
-                }
+    /// Plays the finishing moves one at a time so the end reads as a cascade.
+    private func run(_ plan: [AutoCompleteStep]) async {
+        for step in plan {
+            // Leaving the board or backgrounding the app stops the cascade; Finish stays available.
+            guard isAutoCompleting, !isPaused else { break }
+            var next = state
+            switch step {
+            case .move(let move):
+                guard next.apply(move) else { break }
+                commit(next, sound: { $0.foundation() })
+                haptics.light()
+                try? await Task.sleep(nanoseconds: 95_000_000)
+            case .draw:
+                guard next.draw(settings) else { break }
+                commit(next, sound: { $0.cardFlip() })
+                try? await Task.sleep(nanoseconds: 140_000_000)
             }
-            guard moved else { break }
-            impactFeedback.moveSucceeded()
-            soundPlayer.cardPlace()
-            try? await Task.sleep(nanoseconds: 90_000_000)
         }
-        checkWin()
-        evaluateStuckState()
+        isAutoCompleting = false
+        evaluate()
     }
 
     // MARK: - Win
 
     private func checkWin() {
-        guard state.isWon else { return }
+        guard state.isWon, !winRecorded else { return }
+        winRecorded = true
         stopTimer()
-        wonAnimationTrigger += 1
-        impactFeedback.gameWon()
-        soundPlayer.win()
-        statsStore.recordWin(time: state.elapsedSeconds, score: state.score)
+        isAutoCompleting = false
+        let records = statsStore.recordWin(time: clock.seconds, score: state.score, moves: state.moves)
+        haptics.won()
+        sounds.win()
         GameStateStore.clearState()
+        let result = WinResult(
+            score: state.score,
+            seconds: clock.seconds,
+            moves: state.moves,
+            isBestTime: records.isBestTime,
+            isBestScore: records.isBestScore
+        )
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { self?.winResult = result }
+        }
     }
 
     private func recordAbandonIfInProgress() {

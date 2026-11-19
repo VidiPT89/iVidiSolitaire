@@ -5,6 +5,7 @@ struct SplashView: View {
     @State private var showMenu = false
     @State private var logoScale: CGFloat = 0.7
     @State private var logoOpacity: Double = 0
+    @State private var spread: CGFloat = 0
     @State private var creditsOpacity: Double = 0
 
     private var lang: AppLanguage { appSettings.language }
@@ -19,6 +20,8 @@ struct SplashView: View {
                     .transition(.opacity)
             }
         }
+        .environment(\.cardBackStyle, appSettings.cardBack)
+        .environment(\.appLanguage, lang)
         .animation(.easeInOut(duration: 0.5), value: showMenu)
     }
 
@@ -29,12 +32,10 @@ struct SplashView: View {
             VStack(spacing: 28) {
                 Spacer()
 
-                VStack(spacing: 10) {
-                    Image(systemName: "suit.spade.fill")
-                        .font(.system(size: 64))
-                        .foregroundStyle(Theme.accentGradient)
+                VStack(spacing: 20) {
+                    HeroFan(cardWidth: 80, spread: spread)
                     Text(L10n.t(.appName, lang))
-                        .font(.system(size: 40, weight: .heavy, design: .rounded))
+                        .font(.system(size: 42, weight: .heavy, design: .rounded))
                         .foregroundStyle(Theme.cream)
                 }
                 .scaleEffect(logoScale)
@@ -61,7 +62,10 @@ struct SplashView: View {
                 logoScale = 1
                 logoOpacity = 1
             }
-            withAnimation(.easeIn(duration: 0.6).delay(0.4)) {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.6).delay(0.35)) {
+                spread = 1
+            }
+            withAnimation(.easeIn(duration: 0.6).delay(0.5)) {
                 creditsOpacity = 1
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {

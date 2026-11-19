@@ -6,15 +6,17 @@
 
 ## ✨ Features
 
-- ✅ Classic Klondike rules — draw 1 or draw 3, unlimited or limited stock recycles
-- ✅ Smooth drag & drop with valid-move highlighting and animated snap-back
-- ✅ Double-tap to auto-send a card to the right foundation
-- ✅ Unlimited undo, hint system, and one-tap auto-complete when the board is solved
-- ✅ Classic scoring, timer, move counter and a cascading win animation
-- ✅ Local statistics: games played/won, win rate, best time, win streaks, best score
-- ✅ Animated splash screen with developer credits
-- ✅ PT-PT / English language switch
-- ✅ Light, Dark and System appearance modes
+- ✅ Classic Klondike rules — draw 1 (with a fanned three-card waste in draw 3), unlimited or limited (1–5) passes through the deck
+- ✅ Tap a card to play it to the best spot, or drag it — cards fly between piles, including the deal, undo and auto-complete
+- ✅ Drop targets light up while dragging; invalid drops glide back to where they came from
+- ✅ Smart hints that point at both the card and where it goes (or at the stock), and reliable "no moves left" detection
+- ✅ Auto-complete as soon as the game is decided, even with cards left in the stock
+- ✅ Long columns squeeze to fit the screen; dedicated landscape layout with a side toolbar
+- ✅ Redesigned cards (pip layouts on large screens), four table themes and five card backs
+- ✅ Sound effects and haptics (each can be turned off), left-handed mode
+- ✅ Statistics: games, wins, win rate, streaks, best/average time, best score, fewest moves — with a reset option
+- ✅ Win celebration with personal-best badges
+- ✅ PT-PT / English, Light/Dark/System, VoiceOver labels for every card
 - ✅ Universal app — iPhone and iPad, portrait and landscape
 
 ## 🛠️ Tech Stack
@@ -45,13 +47,19 @@ Build and run on any iPhone or iPad simulator/device.
 ## 📖 Usage
 
 - Tap the stock pile to draw cards into the waste pile.
-- Drag cards between the tableau, waste and foundations, or double-tap a card to auto-move it to its foundation.
-- Use the toolbar to undo, request a hint, auto-complete a solved board, or start a new game.
-- Open Settings to change language, appearance, draw mode and recycle limits.
+- Tap a card to send it to the best destination, or drag it (with any cards on top of it) onto another pile.
+- Use the toolbar to undo, request a hint, finish a solved board automatically, or start a new game.
+- Open Settings to change draw mode, passes through the deck, table theme, card back, left-handed mode, sounds, haptics, language and appearance.
 
 ## 🧪 Testing
 
-Core game rules (move validation, scoring, win detection) live in `GameModel`, isolated from the UI layer for easy unit testing in Xcode's test navigator.
+The Klondike rules (move validation, scoring, hints, stuck detection, auto-complete planning) are pure functions in `KlondikeRules.swift`, covered by the `iSolitaireTests` unit tests:
+
+```bash
+xcodebuild -project iSolitaire.xcodeproj -scheme iSolitaire -destination 'platform=iOS Simulator,name=iPhone 17' test
+```
+
+The project is generated with [XcodeGen](https://github.com/yonaskolb/XcodeGen) from `project.yml` (`xcodegen generate`).
 
 ## 📄 License
 

@@ -38,3 +38,18 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.ividi.iSolitaire
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    scheme:
+      testTargets:
+        - iSolitaireTests
+
+  iSolitaireTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: iSolitaireTests
+    dependencies:
+      - target: iSolitaire
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.ividi.iSolitaireTests
+        GENERATE_INFOPLIST_FILE: YES

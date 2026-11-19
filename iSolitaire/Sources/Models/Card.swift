@@ -3,15 +3,6 @@ import Foundation
 enum Suit: String, CaseIterable, Codable {
     case hearts, diamonds, clubs, spades
 
-    var symbol: String {
-        switch self {
-        case .hearts: return "♥"
-        case .diamonds: return "♦"
-        case .clubs: return "♣"
-        case .spades: return "♠"
-        }
-    }
-
     var isRed: Bool {
         self == .hearts || self == .diamonds
     }
